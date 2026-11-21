@@ -7,6 +7,7 @@ export function UserMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const email = user?.email ?? "Signed in";
   const name = user?.display_name;
@@ -41,13 +42,19 @@ export function UserMenu() {
           </div>
           <button type="button" role="menuitem" autoFocus
             onClick={async () => {
-              setOpen(false);
-              await signOut();
-              navigate("/login", { replace: true });
+              setSignOutFailed(false);
+              try {
+                await signOut();
+                setOpen(false);
+                navigate("/login", { replace: true });
+              } catch {
+                setSignOutFailed(true);
+              }
             }}
             className="mt-1 flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm transition-colors duration-150 hover:bg-muted">
             <LogOut className="size-4" aria-hidden /> Sign out
           </button>
+          {signOutFailed && <p role="alert" className="p-2 text-sm text-destructive">Sign-out failed. Try again.</p>}
         </div>
       )}
     </div>
