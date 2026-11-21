@@ -1,52 +1,70 @@
 @import "tailwindcss";
 
-/* Design tokens — "Minimalism & Swiss" (ui-ux-pro-max design system for A-ERP):
-   navy primary, slate neutrals, blue accent; semantic tokens only, no raw hex in components. */
+/* Design tokens — "Ledger paper".
+   Warm paper + ink neutrals, one rust accent used sparingly (brand, links, the one series that matters).
+   Hairline rules instead of floating cards, square-ish corners, serif for figures, mono for codes & labels.
+   Semantic tokens only — components never use raw hex. */
 :root {
-  --background: #f8fafc;
-  --foreground: #020617;
-  --card: #ffffff;
-  --card-foreground: #020617;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
-  --border: #e2e8f0;
-  --primary: #0f172a;
-  --primary-foreground: #ffffff;
-  --accent: #0369a1;
-  --accent-foreground: #ffffff;
-  --ring: #0369a1;
-  --success: #15803d;
-  --warning: #b45309;
-  --destructive: #dc2626;
-  --chart-1: #0369a1;
-  --chart-2: #0f172a;
-  --chart-3: #64748b;
-  --chart-4: #0891b2;
-  --chart-grid: #e2e8f0;
+  --background: #f4f2ec;
+  --foreground: #1a1917;
+  --card: #fbfaf7;
+  --card-foreground: #1a1917;
+  --muted: #ebe8e0;
+  --muted-foreground: #66625a;
+  --border: #dbd7cc;
+  --rule: #1a1917;
+  --primary: #1a1917;
+  --primary-foreground: #f4f2ec;
+  --accent: #b0441c;
+  --accent-foreground: #fbfaf7;
+  --ring: #b0441c;
+  --success: #2c6b3f;
+  --warning: #93600a;
+  --destructive: #b3261e;
+
+  --sidebar: #1a1917;
+  --sidebar-foreground: #ece8df;
+  --sidebar-muted: #8f8a7e;
+  --sidebar-border: #2e2c28;
+  --sidebar-hover: #262421;
+
+  --chart-1: #2b2a26;
+  --chart-2: #c2522a;
+  --chart-3: #bdb7a8;
+  --chart-4: #6c8a7d;
+  --chart-grid: #e3dfd5;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b1120;
-    --foreground: #f1f5f9;
-    --card: #0f172a;
-    --card-foreground: #f1f5f9;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --border: #1e293b;
-    --primary: #f1f5f9;
-    --primary-foreground: #0f172a;
-    --accent: #38bdf8;
-    --accent-foreground: #0b1120;
-    --ring: #38bdf8;
-    --success: #4ade80;
-    --warning: #fbbf24;
-    --destructive: #f87171;
-    --chart-1: #38bdf8;
-    --chart-2: #e2e8f0;
-    --chart-3: #94a3b8;
-    --chart-4: #22d3ee;
-    --chart-grid: #1e293b;
+    --background: #131211;
+    --foreground: #ece8df;
+    --card: #1a1917;
+    --card-foreground: #ece8df;
+    --muted: #24221f;
+    --muted-foreground: #a29d91;
+    --border: #2f2c28;
+    --rule: #ece8df;
+    --primary: #ece8df;
+    --primary-foreground: #131211;
+    --accent: #ea7c4f;
+    --accent-foreground: #131211;
+    --ring: #ea7c4f;
+    --success: #74c08a;
+    --warning: #e2ab45;
+    --destructive: #f0736a;
+
+    --sidebar: #0d0c0b;
+    --sidebar-foreground: #ece8df;
+    --sidebar-muted: #8a857a;
+    --sidebar-border: #24221f;
+    --sidebar-hover: #1c1b19;
+
+    --chart-1: #e4dfd4;
+    --chart-2: #ea7c4f;
+    --chart-3: #5d594f;
+    --chart-4: #8fb3a4;
+    --chart-grid: #292724;
   }
 }
 
@@ -58,6 +76,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-rule: var(--rule);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
@@ -66,23 +85,50 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-destructive: var(--destructive);
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-hover: var(--sidebar-hover);
+
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", "IBM Plex Sans Thai", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Tighter corners than Tailwind defaults: this is a ledger, not a toy */
+  --radius-sm: 2px;
+  --radius: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
 }
 
 @layer base {
   html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   body {
     @apply bg-background text-foreground font-sans;
     line-height: 1.5;
+    font-feature-settings: "ss02";
   }
   *,
   ::before,
   ::after {
     @apply border-border;
+  }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%238a857a' stroke-width='1.5'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.55rem center;
+    background-size: 12px;
+    padding-right: 1.75rem !important;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -95,9 +141,18 @@
   }
 }
 
-/* Numbers: tabular figures so columns of amounts align */
+/* Numbers: tabular lining figures so columns of amounts align */
 .num {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Small uppercase label used for eyebrows, KPI labels and table headers */
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {

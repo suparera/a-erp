@@ -1,4 +1,3 @@
-import { AlertTriangle, Archive, Boxes, CalendarClock, PackageCheck, PackageX, RefreshCw, TrendingDown } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { DataTable, Pagination } from "../components/DataTable";
@@ -63,7 +62,7 @@ function StockDashboard() {
 
   const k = data?.kpis;
   const change = k && k.prev_month_value ? ((k.stock_value - k.prev_month_value) / k.prev_month_value) * 100 : null;
-  const whColor: Record<string, string> = { "WH-BKK": c["chart-1"], "WH-CNX": c["chart-4"], "WH-KKN": c["chart-3"] };
+  const whColor: Record<string, string> = { "WH-BKK": c["chart-1"], "WH-CNX": c["chart-2"], "WH-KKN": c["chart-4"] };
   const tooltip = { contentStyle: { background: c.card, border: `1px solid ${c.border}`, borderRadius: 8, fontSize: 12 }, labelStyle: { color: c.foreground, fontWeight: 600 } };
   const axis = { tick: { fill: c["muted-foreground"], fontSize: 11 }, tickLine: false };
   const showList = (view: string, extra: Record<string, string | null> = {}) => {
@@ -84,23 +83,23 @@ function StockDashboard() {
 
       {isLoading || !data || !k ? <PageSkeleton /> : (
         <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <Kpi label="Stock value" icon={Boxes} value={bahtCompact(k.stock_value)}
+          <div className="grid grid-cols-2 gap-6 xl:grid-cols-4">
+            <Kpi label="Stock value" value={bahtCompact(k.stock_value)}
               sub={change != null ? `${change >= 0 ? "▲" : "▼"} ${pct(Math.abs(change))} vs ${date(k.prev_month_end)}` : undefined} />
-            <Kpi label="Days of cover" icon={CalendarClock} value={k.days_of_cover != null ? `${k.days_of_cover} days` : "—"} sub="Stock value ÷ avg daily COGS (90 days)" />
-            <Kpi label="Stock turns" icon={RefreshCw} value={k.turns != null ? `${k.turns}× / yr` : "—"} sub="12-month COGS ÷ stock value" />
-            <Kpi label="Fill rate" icon={PackageCheck} value={pct(k.fill_rate)} sub="Order lines shipped within 2 days (90 days)"
+            <Kpi label="Days of cover" value={k.days_of_cover != null ? `${k.days_of_cover} days` : "—"} sub="Stock value ÷ avg daily COGS (90 days)" />
+            <Kpi label="Stock turns" value={k.turns != null ? `${k.turns}× / yr` : "—"} sub="12-month COGS ÷ stock value" />
+            <Kpi label="Fill rate" value={pct(k.fill_rate)} sub="Order lines shipped within 2 days (90 days)"
               tone={k.fill_rate == null ? undefined : k.fill_rate >= 95 ? "success" : k.fill_rate >= 85 ? "warning" : "danger"} />
-            <KpiButton label="Out of stock / at risk" icon={PackageX} value={`${num(k.out)} / ${num(k.at_risk)}`}
+            <KpiButton label="Out of stock / at risk" value={`${num(k.out)} / ${num(k.at_risk)}`}
               sub="At risk = cover shorter than supplier lead time" tone={k.out + k.at_risk ? "danger" : "success"} onClick={() => showList("risk")} />
-            <KpiButton label="Below reorder point" icon={AlertTriangle} value={num(k.low)} sub="Replenishment due" tone={k.low ? "warning" : "success"} onClick={() => showList("risk")} />
-            <KpiButton label="Slow / dead stock" icon={Archive} value={bahtCompact(k.dead_value)} sub={`${num(k.dead_items)} items, no sale in 90 days`}
+            <KpiButton label="Below reorder point" value={num(k.low)} sub="Replenishment due" tone={k.low ? "warning" : "success"} onClick={() => showList("risk")} />
+            <KpiButton label="Slow / dead stock" value={bahtCompact(k.dead_value)} sub={`${num(k.dead_items)} items, no sale in 90 days`}
               tone={k.dead_value ? "warning" : "success"} onClick={() => showList("excess", { sort: "value", dir: "desc" })} />
-            <KpiButton label={`Overstock (> ${data.definitions.excess_days} days)`} icon={TrendingDown} value={bahtCompact(k.excess_value)}
+            <KpiButton label={`Overstock (> ${data.definitions.excess_days} days)`} value={bahtCompact(k.excess_value)}
               sub={`${num(k.excess_items)} items`} tone={k.excess_value ? "warning" : "success"} onClick={() => showList("excess", { sort: "value", dir: "desc" })} />
           </div>
 
-          <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <div className="mt-9 grid gap-5 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader title="Stock value by warehouse" description="Month-end value at moving-average cost (stacked)" />
               <div className="h-72 p-2 pr-4">
@@ -112,7 +111,7 @@ function StockDashboard() {
                     <Tooltip {...tooltip} labelFormatter={(l) => monthLabel(String(l))} formatter={(v, n) => [baht(Number(v)), n]} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {WH_KEYS.filter((w) => data.trend.some((t) => t[w] != null)).map((w) => (
-                      <Area key={w} type="monotone" dataKey={w} name={w} stackId="v" stroke={whColor[w]} fill={whColor[w]} fillOpacity={0.35} strokeWidth={1.5} isAnimationActive={!reduced} />
+                      <Area key={w} type="monotone" dataKey={w} name={w} stackId="v" stroke={whColor[w]} fill={whColor[w]} fillOpacity={0.14} strokeWidth={1.5} isAnimationActive={!reduced} />
                     ))}
                   </AreaChart>
                 </ResponsiveContainer>
@@ -179,7 +178,7 @@ function StockDashboard() {
 
 function KpiButton({ onClick, ...props }: Parameters<typeof Kpi>[0] & { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="block h-full min-w-0 rounded-lg text-left transition-colors duration-150 [&>div]:h-full hover:[&>div]:border-accent/50 hover:[&>div]:bg-muted/40">
+    <button type="button" onClick={onClick} className="group block h-full min-w-0 text-left [&>div]:h-full [&>div]:transition-colors [&>div]:duration-150 hover:[&>div]:border-accent">
       <Kpi {...props} />
     </button>
   );
@@ -191,16 +190,16 @@ function WarehouseTable({ rows, onPick, selected }: { rows: Dash["warehouses"]; 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <caption className="sr-only">Warehouse comparison</caption>
-        <thead className="bg-muted/60">
-          <tr className="border-b text-xs text-muted-foreground">
+        <thead>
+          <tr className="border-b border-foreground/40 text-muted-foreground">
             {["Warehouse", "Value", "Turns", "Fill rate", "Out / risk"].map((h, i) => (
-              <th key={h} scope="col" className={cx("px-3 py-2 font-medium", i ? "text-right" : "text-left")}>{h}</th>
+              <th key={h} scope="col" className={cx("label px-3 py-2", i ? "text-right" : "text-left")}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((w) => (
-            <tr key={w.warehouse_id} className={cx("border-b last:border-0", String(w.warehouse_id) === selected && "bg-accent/10")}>
+            <tr key={w.warehouse_id} className={cx("border-b last:border-0", String(w.warehouse_id) === selected && "bg-accent/[0.07]")}>
               <th scope="row" className="px-3 py-2.5 text-left font-normal">
                 <button type="button" onClick={() => onPick(w.warehouse_id)} className="font-mono font-medium text-accent hover:underline">{w.code}</button>
               </th>
@@ -229,13 +228,13 @@ function AbcGrid({ grid, active, onPick }: {
         <thead>
           <tr>
             <th scope="col" className="w-8" />
-            {(["low", "ok", "high"] as const).map((b) => <th key={b} scope="col" className="px-1 pb-1 text-center text-xs font-medium text-muted-foreground">{COVER_LABEL[b]}</th>)}
+            {(["low", "ok", "high"] as const).map((b) => <th key={b} scope="col" className="label px-1 pb-1 text-center text-muted-foreground">{COVER_LABEL[b]}</th>)}
           </tr>
         </thead>
         <tbody>
           {(["A", "B", "C"] as const).map((a) => (
             <tr key={a}>
-              <th scope="row" className="text-center text-sm font-semibold">{a}</th>
+              <th scope="row" className="text-center font-serif text-lg font-medium">{a}</th>
               {(["low", "ok", "high"] as const).map((b) => {
                 const g = grid.find((x) => x.abc === a && x.cover === b)!;
                 const share = g.value / total;
@@ -244,7 +243,7 @@ function AbcGrid({ grid, active, onPick }: {
                   <td key={b} className="p-0">
                     <button type="button" onClick={() => onPick(a, b)} aria-pressed={on}
                       aria-label={`Class ${a}, ${COVER_LABEL[b]}: ${g.items} items, ${bahtCompact(g.value)}`}
-                      className={cx("flex h-16 w-full flex-col items-center justify-center rounded-md border text-center transition-shadow duration-150 hover:ring-2 hover:ring-accent/60", on && "ring-2 ring-accent")}
+                      className={cx("flex h-16 w-full flex-col items-center justify-center rounded-sm text-center transition-shadow duration-150 hover:ring-1 hover:ring-foreground", on && "ring-2 ring-accent")}
                       style={{ background: `color-mix(in srgb, ${tint[b]} ${Math.round(6 + Math.min(1, share * 3) * 30)}%, transparent)` }}>
                       <span className="num text-base font-semibold">{num(g.items)}</span>
                       <span className="num text-xs text-muted-foreground">{bahtCompact(g.value)}</span>

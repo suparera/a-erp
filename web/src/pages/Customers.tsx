@@ -1,4 +1,3 @@
-import { Banknote, Clock, Receipt, TrendingUp } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useParams } from "react-router";
 import { DataTable, Pagination } from "../components/DataTable";
@@ -76,20 +75,20 @@ export function CustomerDetailPage() {
       <PageHeader back={{ to: "/customers", label: "Customers" }} title={c.name} badge={<Badge>{c.segment}</Badge>}
         description={<><span className="font-mono">{c.customer_code}</span> · {c.province}, {c.region} · customer since {date(c.created_date)}</>} />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Kpi label="Lifetime revenue" icon={TrendingUp} value={bahtCompact(s.revenue_lifetime)} sub={`${num(s.invoices)} invoices since ${date(s.first_invoice_date)}`} />
-        <Kpi label="Open receivables" icon={Banknote} value={baht(s.open_ar ?? 0)}
+      <div className="mb-8 grid grid-cols-2 gap-6 xl:grid-cols-4">
+        <Kpi label="Lifetime revenue" value={bahtCompact(s.revenue_lifetime)} sub={`${num(s.invoices)} invoices since ${date(s.first_invoice_date)}`} />
+        <Kpi label="Open receivables" value={baht(s.open_ar ?? 0)}
           sub={s.overdue_ar ? `${baht(s.overdue_ar)} overdue` : "Nothing overdue"} tone={s.overdue_ar ? "danger" : "success"} />
-        <Kpi label="Avg. days to pay" icon={Clock} value={s.avg_days_to_pay != null ? `${s.avg_days_to_pay} days` : "—"}
+        <Kpi label="Avg. days to pay" value={s.avg_days_to_pay != null ? `${s.avg_days_to_pay} days` : "—"}
           sub={s.avg_days_late != null ? (s.avg_days_late > 0 ? `${s.avg_days_late} days after due on average` : `${Math.abs(s.avg_days_late)} days before due on average`) : undefined}
           tone={s.avg_days_late != null && s.avg_days_late > 15 ? "danger" : s.avg_days_late != null && s.avg_days_late > 0 ? "warning" : "success"} />
-        <div className="min-w-0 rounded-lg border bg-card p-3 sm:p-4">
-          <div className="flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">Credit utilisation</span><Receipt className="size-4 text-muted-foreground" aria-hidden /></div>
-          <div className="num mt-1 text-xl font-semibold">{pct(util)}</div>
-          <div className="mt-2 h-2 rounded-full bg-muted" role="meter" aria-valuenow={Math.round(util)} aria-valuemin={0} aria-valuemax={100} aria-label="Credit utilisation">
-            <div className={cx("h-2 rounded-full", util > 90 ? "bg-destructive" : util > 70 ? "bg-warning" : "bg-accent")} style={{ width: `${Math.min(100, util)}%` }} />
+        <div className="min-w-0 border-t border-rule pt-2.5 pb-1">
+          <span className="label text-muted-foreground">Credit utilisation</span>
+          <div className="num mt-1.5 font-serif text-[1.75rem] leading-none font-medium tracking-[-0.02em] sm:text-[2rem]">{pct(util)}</div>
+          <div className="mt-2.5 h-1.5 bg-muted" role="meter" aria-valuenow={Math.round(util)} aria-valuemin={0} aria-valuemax={100} aria-label="Credit utilisation">
+            <div className={cx("h-1.5", util > 90 ? "bg-destructive" : util > 70 ? "bg-warning" : "bg-foreground")} style={{ width: `${Math.min(100, util)}%` }} />
           </div>
-          <div className="num mt-1 text-xs text-muted-foreground">of {baht(c.credit_limit)} limit</div>
+          <div className="num mt-1.5 text-xs text-muted-foreground">of {baht(c.credit_limit)} limit</div>
         </div>
       </div>
 

@@ -96,7 +96,7 @@ export function PurchaseOrderDetailPage() {
       <PageHeader back={{ to: "/purchase-orders", label: "Purchase orders" }} title={<span className="font-mono">{po.po_number}</span>}
         badge={<StatusBadge status={po.status} />} description={`${po.supplier_name} · ordered ${date(po.order_date)}`} />
       {onHold.length > 0 && (
-        <div role="alert" className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+        <div role="alert" className="mb-6 flex items-start gap-2 border-l-2 border-destructive bg-destructive/[0.06] px-4 py-3 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
           <div><span className="font-medium text-destructive">Invoice on hold: </span>{onHold.map((s) => `${s.document_number}: ${s.hold_reason}`).join(" · ")}</div>
         </div>

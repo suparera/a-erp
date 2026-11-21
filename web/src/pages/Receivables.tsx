@@ -10,6 +10,9 @@ interface ArRow {
 }
 type Aging = { bucket: string; amount: number; invoices: number }[];
 
+const BUCKET = "group border-t-2 pt-2.5 pb-1 text-left transition-colors duration-150 hover:border-accent aria-pressed:[&_.label]:text-accent";
+const BUCKET_VAL = "num mt-1.5 mb-1 font-serif text-2xl leading-none font-medium tracking-[-0.02em]";
+
 export function ReceivablesPage() {
   const { data: meta } = useMeta();
   const [f, set] = useUrlState({ q: "", bucket: "", segment: "", sort: "days_overdue", dir: "desc", page: "1" });
@@ -19,21 +22,21 @@ export function ReceivablesPage() {
   return (
     <>
       <PageHeader title="Receivables" description={`Open customer invoices aged by days past due${data ? `, as of ${date(data.as_of)}` : ""}. Select a bucket to filter.`} />
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 xl:grid-cols-6">
         <button type="button" onClick={() => set({ bucket: "" })} aria-pressed={!f.bucket}
-          className={cx("rounded-lg border bg-card p-3 text-left transition-colors duration-150 hover:border-accent/50", !f.bucket && "border-accent ring-1 ring-accent")}>
-          <div className="text-xs font-medium text-muted-foreground">All open</div>
-          <div className="num mt-1 text-lg font-semibold">{bahtCompact(totalAr)}</div>
+          className={cx(BUCKET, !f.bucket ? "border-accent" : "border-rule")}>
+          <div className="label text-muted-foreground">All open</div>
+          <div className={BUCKET_VAL}>{bahtCompact(totalAr)}</div>
           <div className="num text-xs text-muted-foreground">{num(data?.aging.reduce((a, b) => a + b.invoices, 0))} invoices</div>
         </button>
         {data?.aging.map((a) => (
           <button key={a.bucket} type="button" onClick={() => set({ bucket: a.bucket })} aria-pressed={f.bucket === a.bucket}
-            className={cx("rounded-lg border bg-card p-3 text-left transition-colors duration-150 hover:border-accent/50", f.bucket === a.bucket && "border-accent ring-1 ring-accent")}>
-            <div className="flex items-center justify-between gap-1 text-xs font-medium text-muted-foreground">
+            className={cx(BUCKET, f.bucket === a.bucket ? "border-accent" : "border-rule")}>
+            <div className="label flex items-center justify-between gap-1 text-muted-foreground">
               {a.bucket === "Current" ? "Not yet due" : `${a.bucket} days`}
               <span className="num">{totalAr ? Math.round((a.amount / totalAr) * 100) : 0}%</span>
             </div>
-            <div className={cx("num mt-1 text-lg font-semibold", a.bucket === "90+" && "text-destructive")}>{bahtCompact(a.amount)}</div>
+            <div className={cx(BUCKET_VAL, a.bucket === "90+" && "text-destructive")}>{bahtCompact(a.amount)}</div>
             <div className="num text-xs text-muted-foreground">{num(a.invoices)} invoices</div>
           </button>
         ))}

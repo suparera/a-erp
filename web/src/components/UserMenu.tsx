@@ -30,11 +30,11 @@ export function UserMenu() {
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`Account menu for ${email}`}
         className="flex h-9 items-center gap-1.5 rounded-md px-1.5 transition-colors duration-150 hover:bg-muted">
-        <span className="flex size-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground" aria-hidden>{initial}</span>
+        <span className="flex size-7 items-center justify-center rounded-full bg-primary font-serif text-sm font-medium text-primary-foreground" aria-hidden>{initial}</span>
         <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-50 mt-1 w-64 rounded-lg border bg-card p-1 shadow-lg">
+        <div role="menu" className="absolute right-0 z-50 mt-1 w-64 rounded-md border bg-card p-1 shadow-[0_8px_24px_-12px_rgb(0_0_0/0.25)]">
           <div className="border-b px-3 py-2">
             <div className="text-xs text-muted-foreground">Signed in as</div>
             {name && <div className="truncate text-sm font-medium">{name}</div>}

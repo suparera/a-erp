@@ -21,7 +21,7 @@ export function DocumentFlow({ steps }: { steps: FlowStep[] }) {
         {steps.map((s, i) => (
           <li key={i} className="flex items-start gap-2.5">
             <span className={cx("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
-              s.done ? "border-success bg-success text-card" : "text-muted-foreground")}>
+              s.done ? "border-foreground bg-foreground text-background" : "border-dashed border-foreground/40 text-muted-foreground")}>
               {s.done ? <Check className="size-3" strokeWidth={3} aria-hidden /> : <Circle className="size-2" aria-hidden />}
             </span>
             <div className="min-w-0 text-sm">

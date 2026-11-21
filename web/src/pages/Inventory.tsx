@@ -1,4 +1,3 @@
-import { AlertTriangle, Boxes, PackageX, Warehouse } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useParams } from "react-router";
 import { DataTable, Pagination } from "../components/DataTable";
@@ -23,11 +22,11 @@ export function StockListPage() {
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Kpi label="Stock value (filtered)" icon={Boxes} value={s ? bahtCompact(s.value) : "—"} />
-        <Kpi label="Item-locations" icon={Warehouse} value={s ? num(s.item_locations) : "—"} />
-        <Kpi label="Below reorder point" icon={AlertTriangle} value={s ? num(s.low) : "—"} tone={s?.low ? "warning" : "success"} sub={s?.low ? "Replenishment pending" : "All above reorder point"} to="?tab=list&stock_status=low" />
-        <Kpi label="Out of stock" icon={PackageX} value={s ? num(s.out_of_stock) : "—"} tone={s?.out_of_stock ? "danger" : "success"} sub={s?.out_of_stock ? "Blocking order shipments" : "Nothing blocked"} to="?tab=list&stock_status=out" />
+      <div className="mb-8 grid grid-cols-2 gap-6 xl:grid-cols-4">
+        <Kpi label="Stock value (filtered)" value={s ? bahtCompact(s.value) : "—"} />
+        <Kpi label="Item-locations" value={s ? num(s.item_locations) : "—"} />
+        <Kpi label="Below reorder point" value={s ? num(s.low) : "—"} tone={s?.low ? "warning" : "success"} sub={s?.low ? "Replenishment pending" : "All above reorder point"} to="?tab=list&stock_status=low" />
+        <Kpi label="Out of stock" value={s ? num(s.out_of_stock) : "—"} tone={s?.out_of_stock ? "danger" : "success"} sub={s?.out_of_stock ? "Blocking order shipments" : "Nothing blocked"} to="?tab=list&stock_status=out" />
       </div>
       <FilterBar>
         <SearchInput value={f.q} onChange={(q) => set({ q })} placeholder="SKU, product or brand" />
