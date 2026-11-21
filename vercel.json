@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "buildCommand": "npm --prefix web ci && npm --prefix web run build && PYTHONPATH=src python -m erp_synth generate --out data",
+  "functions": {
+    "src/erp_api/app.py": {
+      "includeFiles": "{data/erp.sqlite,web/dist/**}",
+      "excludeFiles": "{data/csv/**,data/ground_truth/**,web/node_modules/**,web/src/**}"
+    }
+  }
+}

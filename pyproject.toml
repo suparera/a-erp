@@ -19,3 +19,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/erp_synth", "src/erp_api"]
+
+[tool.vercel]
+entrypoint = "src.erp_api.app:app"

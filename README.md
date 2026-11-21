@@ -94,7 +94,9 @@ SUPABASE_URL=https://tktcuflqokgssrrbjnyg.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_…
 ```
 
-Apply the migrations when setting up a new Supabase project. Start FastAPI from the repository root.
+Apply the migrations when setting up a new Supabase project, import
+`data/csv/employees.csv` into `public.employees`, and turn off **Allow new users to sign up**
+in the hosted Auth settings. Start FastAPI from the repository root.
 
 ```bash
 uv run uvicorn erp_api.app:app --env-file .env.local --reload --reload-dir src --port 8010
@@ -112,22 +114,27 @@ different host or port. Use the same hostname for both frontends to share the br
 
 ### Supabase accounts and access
 
-Create the user in Supabase Authentication, then grant ERP access in the Supabase SQL Editor
-using the user's ID. The default ERP role is `user`.
+An administrator provisions accounts in Supabase Authentication with the employee's roster email.
+The database matches the email to `public.employees` after trimming spaces and ignoring case.
+Each employee can have one account, and the employee must be active when the account is created.
+Confirm that the employee controls the email address before marking it verified. Grant ERP access
+in the Supabase SQL Editor using the Auth user ID. The default ERP role is `user`.
 
 ```sql
 insert into public.aerp_memberships (user_id) values ('user-uuid-from-supabase-auth');
 ```
 
-Users can sign in with their Supabase email. For username sign-in, create the account with
-`<username>@users.a-erp.example` and use the short username in Next.js. Set `ERP_USERNAME_DOMAIN`
-to a domain you control if those aliases need to receive password recovery email.
+Users can sign in with their employee email. If `ERP_USERNAME_DOMAIN` matches the domain of the
+employee's email, they can also sign in with the part before `@`.
 
-FastAPI verifies the access token with Supabase Auth for each protected API request. It then reads
-the caller's membership with the same token. Postgres row-level security allows only the caller's
-own membership and requires a live `auth.sessions` row, so a signed-out token or an account
-without ERP membership cannot read protected data. Next.js checks this same guard before rendering
-the dashboard.
+Login, token refresh, and every protected API request require a verified email, a live Supabase
+session, and an ERP membership for the linked employee. Update employment status in
+`public.employees` in Supabase. Access ends on the next protected request after `is_active`
+changes to `0`, or from midnight in Bangkok on the `termination_date`. A future termination date
+allows access while `is_active = 1`. Store termination dates in `YYYY-MM-DD` format and use
+`NULL` when there is no termination date. If an employee's email changes, update the roster and
+the linked account for the same employee. Existing accounts with unmatched emails must be linked
+to an eligible employee by updating and verifying the account email before they can access ERP.
 
 Supabase handles passwords. The app stores access and refresh tokens in `HttpOnly`, `SameSite=Lax`
 cookies. Set `ERP_COOKIE_SECURE=1` when serving over HTTPS. For local Supabase development, run

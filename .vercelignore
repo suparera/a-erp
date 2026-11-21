@@ -1,0 +1,9 @@
+.env
+.env.*
+.venv/
+.claude/
+data/
+tests/
+web/dist/
+web/node_modules/
+web-next/

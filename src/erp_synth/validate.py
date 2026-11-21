@@ -115,9 +115,14 @@ def print_summary(con: sqlite3.Connection):
         ("RFQs by status         ", "SELECT status, COUNT(*) FROM rfqs GROUP BY 1"),
     ]:
         print(f"  {label}: {dict(con.execute(sql).fetchall())}")
-    print(f"  On-time first delivery : {q("SELECT ROUND(100.0*SUM(g.receipt_date<=po.expected_date)/COUNT(*),1) FROM goods_receipts g JOIN purchase_orders po USING(purchase_order_id) WHERE g.delivery_no=1")}%")
+    on_time_delivery = q(
+        "SELECT ROUND(100.0*SUM(g.receipt_date<=po.expected_date)/COUNT(*),1) "
+        "FROM goods_receipts g JOIN purchase_orders po USING(purchase_order_id) WHERE g.delivery_no=1"
+    )
+    print(f"  On-time first delivery : {on_time_delivery}%")
     print(f"  Avg PO lines           : {q('SELECT ROUND(AVG(n),2) FROM (SELECT COUNT(*) n FROM purchase_order_lines GROUP BY purchase_order_id)')}")
-    print(f"  Purchase price variance: {q("SELECT ROUND(SUM(debit-credit),2) FROM journal_lines WHERE account_code='5200'"):,.2f} THB")
+    price_variance = q("SELECT ROUND(SUM(debit-credit),2) FROM journal_lines WHERE account_code='5200'")
+    print(f"  Purchase price variance: {price_variance:,.2f} THB")
     print(f"  Closing cash (THB)    : {q(chr(10).join(['SELECT ROUND(SUM(debit-credit),2) FROM journal_lines WHERE account_code=' + repr('1000')])):,.2f}")
     print(f"  Closing AR (THB)      : {q('SELECT ROUND(SUM(debit-credit),2) FROM journal_lines WHERE account_code=' + repr('1100')):,.2f}")
     print(f"  Closing inventory     : {q('SELECT ROUND(SUM(debit-credit),2) FROM journal_lines WHERE account_code=' + repr('1200')):,.2f}")
