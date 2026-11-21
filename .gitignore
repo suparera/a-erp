@@ -2,13 +2,20 @@ __pycache__/
 *.pyc
 .venv/
 # generated output — reproduce with: uv run python -m erp_synth generate
-# Ignore everything in data/ (erp.sqlite, auth.sqlite with accounts) except the CSV export.
+# Ignore local databases and generated data except the CSV export.
 data/*
 !data/csv/
 web/node_modules/
 web/dist/
+web-next/node_modules/
+web-next/.next/
+web-next/next-env.d.ts
+web-next/*.tsbuildinfo
 
 # local tooling / secrets
 graft/
 .env
 .env.*
+
+supabase/.branches/
+supabase/.temp/

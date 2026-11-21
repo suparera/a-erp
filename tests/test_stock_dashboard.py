@@ -20,7 +20,7 @@ class StockDashboardTest(unittest.TestCase):
         assert generate(SMALL, out)
         cls.db = out / "erp.sqlite"
         cls.patches = [mock.patch.object(api_module, "DB_PATH", cls.db),
-                       mock.patch.dict("os.environ", {"ERP_AUTH_DISABLED": "1"})]
+                       mock.patch.dict(api_module.app.dependency_overrides, {api_module.require_user: lambda: {}})]
         for p in cls.patches:
             p.start()
         api_module._as_of.cache_clear()

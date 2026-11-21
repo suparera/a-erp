@@ -1,94 +1,81 @@
-"""Local SQLite auth: password hashing, sessions, rate limiting, and the HTTP flow end to end."""
-import sqlite3
-import tempfile
+"""The ERP grants access only after both Supabase Auth and Postgres authorize it."""
 import unittest
-from pathlib import Path
-from unittest import mock
+from unittest.mock import patch
 
+import httpx2
 from fastapi.testclient import TestClient
 
 from erp_api import auth
 from erp_api.app import app
 
-EMAIL, PASSWORD = "tester@a-erp.test", "Correct-Horse-9"
+ACCESS = "supabase.access.token"
+REFRESH = "supabase-refresh-token"
+IDENTITY = {"id": "8c780c65-ae43-448f-9371-874bb85fe825", "email": "planner@users.a-erp.example"}
+SESSION = {"access_token": ACCESS, "refresh_token": REFRESH, "expires_in": 3600}
 
 
-class AuthTestCase(unittest.TestCase):
+class AuthTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.patches = [mock.patch.object(auth, "AUTH_DB", Path(self.tmp.name) / "auth.sqlite"),
-                        mock.patch.dict("os.environ", {"ERP_AUTH_DISABLED": ""})]
-        for p in self.patches:
-            p.start()
-        auth._fails.clear()
-        auth.create_user(EMAIL, PASSWORD, "Test User")
-
-    def tearDown(self):
-        for p in self.patches:
-            p.stop()
-        self.tmp.cleanup()
-
-
-class PasswordAndSessionTest(AuthTestCase):
-    def test_password_is_hashed_not_stored(self):
-        with sqlite3.connect(auth.AUTH_DB) as con:
-            stored = con.execute("SELECT password_hash FROM users").fetchone()[0]
-        self.assertTrue(stored.startswith("scrypt$"))
-        self.assertNotIn(PASSWORD, stored)
-
-    def test_authenticate(self):
-        self.assertEqual(auth.authenticate(EMAIL.upper(), PASSWORD)["email"], EMAIL)  # email is case-insensitive
-        self.assertIsNone(auth.authenticate(EMAIL, "wrong-password"))
-        self.assertIsNone(auth.authenticate("nobody@a-erp.test", PASSWORD))
-
-    def test_duplicate_and_weak_passwords_rejected(self):
-        with self.assertRaises(ValueError):
-            auth.create_user(EMAIL, "Another-Pass-1")
-        with self.assertRaises(ValueError):
-            auth.create_user("x@a-erp.test", "short")
-
-    def test_session_token_stored_hashed_and_expires(self):
-        user = auth.authenticate(EMAIL, PASSWORD)
-        token, _ = auth.create_session(user["id"], "ua")
-        self.assertEqual(auth.session_user(token)["email"], EMAIL)
-        with sqlite3.connect(auth.AUTH_DB) as con:
-            self.assertNotIn(token, [r[0] for r in con.execute("SELECT token_hash FROM sessions")])
-            con.execute("UPDATE sessions SET expires_at = '2000-01-01T00:00:00+00:00'")
-        self.assertIsNone(auth.session_user(token))
-
-    def test_password_change_revokes_sessions(self):
-        token, _ = auth.create_session(auth.authenticate(EMAIL, PASSWORD)["id"], None)
-        auth.set_password(EMAIL, "Brand-New-Pass-2")
-        self.assertIsNone(auth.session_user(token))
-        self.assertIsNotNone(auth.authenticate(EMAIL, "Brand-New-Pass-2"))
-
-
-class HttpFlowTest(AuthTestCase):
-    def setUp(self):
-        super().setUp()
         self.client = TestClient(app)
+        self.addCleanup(self.client.close)
+        patcher = patch.object(auth, "supabase_request")
+        self.provider = patcher.start()
+        self.addCleanup(patcher.stop)
 
-    def test_data_requires_sign_in(self):
+    def test_anonymous_data_request_never_reaches_provider(self):
         self.assertEqual(self.client.get("/api/meta").status_code, 401)
-        self.assertEqual(self.client.get("/api/health").status_code, 200)
+        self.provider.assert_not_called()
 
-    def test_login_cookie_access_logout(self):
-        r = self.client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
-        self.assertEqual(r.status_code, 200)
-        cookie = r.headers["set-cookie"].lower()
-        self.assertIn("httponly", cookie)
-        self.assertIn("samesite=lax", cookie)
-        self.assertEqual(self.client.get("/api/auth/me").json()["email"], EMAIL)
-        self.assertEqual(self.client.get("/api/meta").status_code, 200)
+    def test_password_login_uses_supabase_and_issues_http_only_cookies(self):
+        self.provider.side_effect = [
+            httpx2.Response(200, json=SESSION),
+            httpx2.Response(200, json=IDENTITY),
+            httpx2.Response(200, json=[{"role": "user"}]),
+        ]
+        response = self.client.post("/api/auth/login", json={"username": "Planner", "password": "example"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["username"], "planner")
+        self.assertTrue(all("httponly" in cookie.lower() for cookie in response.headers.get_list("set-cookie")))
+        self.assertNotIn(ACCESS, response.text)
+        self.provider.assert_any_call("POST", "auth/v1/token?grant_type=password",
+                                      payload={"email": IDENTITY["email"], "password": "example"})
+
+    def test_valid_identity_without_database_authorization_is_denied(self):
+        self.provider.side_effect = [
+            httpx2.Response(200, json=IDENTITY),
+            httpx2.Response(200, json=[]),
+        ]
+        self.client.cookies.set(auth.ACCESS_COOKIE, ACCESS)
+        self.assertEqual(self.client.get("/api/meta").status_code, 401)
+        self.provider.assert_any_call("GET", "rest/v1/aerp_memberships?select=role&limit=1", token=ACCESS)
+
+    def test_provider_outage_fails_closed(self):
+        self.provider.side_effect = [
+            httpx2.Response(200, json=IDENTITY),
+            httpx2.Response(503, json={}),
+        ]
+        self.client.cookies.set(auth.ACCESS_COOKIE, ACCESS)
+        self.assertEqual(self.client.get("/api/auth/me").status_code, 503)
+
+    def test_refresh_and_logout_use_supabase_and_clear_cookies(self):
+        self.provider.side_effect = [
+            httpx2.Response(200, json=SESSION),
+            httpx2.Response(200, json=IDENTITY),
+            httpx2.Response(200, json=[{"role": "user"}]),
+            httpx2.Response(204),
+        ]
+        self.client.cookies.set(auth.REFRESH_COOKIE, REFRESH, domain="testserver.local", path="/")
+        self.assertEqual(self.client.post("/api/auth/refresh").status_code, 204)
+        self.provider.assert_any_call("POST", "auth/v1/token?grant_type=refresh_token",
+                                      payload={"refresh_token": REFRESH})
         self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
-        self.assertEqual(self.client.get("/api/auth/me").status_code, 401)
+        self.provider.assert_called_with("POST", "auth/v1/logout?scope=local", token=ACCESS)
+        self.assertIsNone(self.client.cookies.get(auth.ACCESS_COOKIE))
+        self.assertIsNone(self.client.cookies.get(auth.REFRESH_COOKIE))
 
-    def test_wrong_password_and_rate_limit(self):
-        for _ in range(auth.MAX_FAILS):
-            self.assertEqual(self.client.post("/api/auth/login", json={"email": EMAIL, "password": "nope"}).status_code, 401)
-        # locked out — even the correct password is refused until the window passes
-        self.assertEqual(self.client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD}).status_code, 429)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_logout_revokes_session_when_access_token_has_expired(self):
+        self.provider.side_effect = [httpx2.Response(401), httpx2.Response(200, json=SESSION), httpx2.Response(204)]
+        self.client.cookies.set(auth.ACCESS_COOKIE, "expired")
+        self.client.cookies.set(auth.REFRESH_COOKIE, REFRESH)
+        self.assertEqual(self.client.post("/api/auth/logout").status_code, 204)
+        self.provider.assert_called_with("POST", "auth/v1/logout?scope=local", token=ACCESS)

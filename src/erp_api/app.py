@@ -8,20 +8,20 @@ import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, Cookie, Depends, FastAPI, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, Response
+from pydantic import BaseModel, model_validator
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import auth
-from .auth import auth_disabled, require_user
+from .auth import require_user
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = Path(os.environ.get("ERP_DB", ROOT / "data" / "erp.sqlite")).resolve()
 WEB_DIST = ROOT / "web" / "dist"
 
 app = FastAPI(title="A-ERP API", version="0.1.0")
-# Every data endpoint requires a signed-in user (local SQLite auth, see auth.py)
+# Every data endpoint requires a signed-in user (Supabase Auth and its database session)
 api = APIRouter(prefix="/api", dependencies=[Depends(require_user)])
 
 
@@ -751,30 +751,53 @@ def account_lines(account_code: str, date_from: str | None = None, date_to: str 
 
 # ---------------------------------------------------------------- auth (public endpoints)
 class Credentials(BaseModel):
-    email: str
+    email: str | None = None
+    username: str | None = None
     password: str
+
+    @model_validator(mode="after")
+    def validate_identifier(self):
+        if (self.email is None) == (self.username is None):
+            raise ValueError("Provide exactly one of username or email")
+        return self
 
 
 @app.post("/api/auth/login")
-def login(body: Credentials, request: Request, response: Response):
-    key = f"{body.email.strip().lower()}|{request.client.host if request.client else '-'}"
-    auth.check_rate_limit(key)
-    user = auth.authenticate(body.email, body.password)
-    if not user:
-        auth.record_failure(key)
-        raise HTTPException(401, "Email or password is incorrect.")
-    auth.clear_failures(key)
-    token, expires = auth.create_session(user["id"], request.headers.get("user-agent"))
-    response.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax", path="/",
-                        secure=os.environ.get("ERP_COOKIE_SECURE") == "1",
-                        max_age=int(auth.SESSION_TTL.total_seconds()))
-    return {"user": user, "expires_at": expires.isoformat()}
+def login(body: Credentials, response: Response):
+    identifier = (body.username or body.email or "").strip()
+    session = auth.exchange("password", {"email": auth.login_email(identifier), "password": body.password})
+    user = auth.verify_user(session["access_token"])
+    auth.set_session(response, session)
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"user": user}
+
+
+@app.post("/api/auth/refresh", status_code=204)
+def refresh(request: Request, response: Response):
+    token = request.cookies.get(auth.REFRESH_COOKIE)
+    if not token:
+        raise HTTPException(401, "Sign in required.")
+    session = auth.exchange("refresh_token", {"refresh_token": token})
+    auth.verify_user(session["access_token"])
+    auth.set_session(response, session)
+    response.headers["Cache-Control"] = "private, no-store"
 
 
 @app.post("/api/auth/logout", status_code=204)
-def logout(response: Response, aerp_session: str | None = Cookie(default=None)):
-    auth.delete_session(aerp_session)
-    response.delete_cookie(auth.COOKIE, path="/")
+def logout(request: Request, response: Response):
+    token = request.cookies.get(auth.ACCESS_COOKIE)
+    refresh_token = request.cookies.get(auth.REFRESH_COOKIE)
+    revoked = bool(token and auth.revoke_session(token))
+    if not revoked and refresh_token:
+        try:
+            refreshed = auth.exchange("refresh_token", {"refresh_token": refresh_token})
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+        else:
+            auth.revoke_session(refreshed["access_token"])
+    auth.clear_session(response)
+    response.headers["Cache-Control"] = "private, no-store"
 
 
 @api.get("/auth/me")
@@ -784,7 +807,8 @@ def me(user: dict = Depends(require_user)):
 
 @app.get("/api/health")
 def health():
-    return {"ok": DB_PATH.exists(), "auth": "disabled" if auth_disabled() else "sqlite"}
+    configured = bool(os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_PUBLISHABLE_KEY"))
+    return {"ok": DB_PATH.exists(), "auth": "supabase" if configured else "unconfigured"}
 
 
 app.include_router(api)

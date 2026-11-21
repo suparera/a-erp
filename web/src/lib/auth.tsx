@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   display_name: string | null;
   role: "user" | "admin";
@@ -29,6 +29,18 @@ async function errorMessage(res: Response) {
   }
 }
 
+let refreshing: Promise<boolean> | undefined;
+
+export async function authenticatedFetch(input: string) {
+  const response = await fetch(input);
+  if (response.status !== 401) return response;
+  refreshing ??= fetch("/api/auth/refresh", { method: "POST" })
+    .then((refresh) => refresh.ok)
+    .catch(() => false)
+    .finally(() => { refreshing = undefined; });
+  return await refreshing ? fetch(input) : response;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
@@ -36,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/auth/me")
+    authenticatedFetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => alive && setUser(u))
       .catch(() => alive && setUser(null))
@@ -69,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [qc]);
 
   const signOut = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) throw new Error("Sign-out is temporarily unavailable.");
     qc.clear();
     setUser(null);
   }, [qc]);

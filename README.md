@@ -27,7 +27,7 @@ contractors and wholesalers:
 2. **API** (`src/erp_api/`): a read-only FastAPI JSON API over the SQLite data.
 3. **Web app** (`web/`): a React app with dashboard, sales, customers, receivables, inventory, purchasing
    and accounting pages.
-4. **Sign-in**: local accounts in SQLite (scrypt-hashed passwords, HttpOnly session cookies).
+4. **Sign-in**: Supabase Auth with server-side session validation and Postgres row-level security.
 
 ## How it was built: the agentic-coding journey
 
@@ -72,7 +72,7 @@ database and ground-truth files are generated locally.
 
 ```bash
 uv run python -m erp_synth generate                                  # once: build data/erp.sqlite
-uv run uvicorn erp_api.app:app --reload --reload-dir src --port 8010  # terminal 1: JSON API
+uv run uvicorn erp_api.app:app --env-file .env.local --reload --reload-dir src --port 8010  # terminal 1: JSON API
 cd web && npm install && npm run dev                                 # terminal 2: React dev server (port 5180)
 # → http://127.0.0.1:5180   (Vite proxies /api to :8010; override with ERP_API=http://host:port)
 ```
@@ -81,27 +81,57 @@ Single-port mode: `cd web && npm run build` creates `web/dist`. The API then ser
 http://127.0.0.1:8010 (restart uvicorn after the first build). Ports 8000 and 5173 are avoided
 because they're often taken by OrbStack/Docker.
 
-### Sign-in (local accounts in SQLite)
+## Run the Next.js starter
 
-Accounts and sessions are stored in `data/auth.sqlite`, separate from `erp.sqlite`, so regenerating
-the dataset keeps them. Nothing external is needed.
+`web-next/` is the Next.js App Router starter with a sign-in page and a protected dashboard.
+It shares FastAPI and Supabase Auth with the React frontend and runs without the synthetic ERP dataset.
 
-```bash
-uv run python -m erp_api.users create --email you@company.com --name "Your Name"   # prints a generated password
-uv run python -m erp_api.users create --email boss@company.com --admin --password 'Choose-A-Good-One'
-uv run python -m erp_api.users list
-uv run python -m erp_api.users set-password --email you@company.com   # also signs that user out everywhere
-uv run python -m erp_api.users disable --email you@company.com
+Set the following in the ignored `.env.local` file at the repository root. Get the publishable key from
+the [Supabase project API keys page](https://supabase.com/dashboard/project/tktcuflqokgssrrbjnyg/settings/api-keys).
+
+```dotenv
+SUPABASE_URL=https://tktcuflqokgssrrbjnyg.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_…
 ```
 
-- **Passwords:** hashed with scrypt (Python standard library, random salt per user). Minimum length is 8.
-- **Sessions:** a random token in an `HttpOnly`, `SameSite=Lax` cookie, valid for 7 days. The database
-  stores only a SHA-256 hash of the token. Signing out deletes the session on the server.
-  Set `ERP_COOKIE_SECURE=1` when serving over HTTPS.
-- **Brute-force protection:** 5 failed sign-ins per email and IP within 15 minutes → `429`.
-- **API:** every `/api/*` route needs a session except `/api/health`, `/api/auth/login` and
-  `/api/auth/logout`. Set `ERP_AUTH_DISABLED=1` to turn auth off for local experiments.
-- **No self sign-up or password-reset email** (there is no mail service); admins create accounts with the CLI above.
+Apply the migrations when setting up a new Supabase project. Start FastAPI from the repository root.
+
+```bash
+uv run uvicorn erp_api.app:app --env-file .env.local --reload --reload-dir src --port 8010
+```
+
+Start Next.js in a second terminal with Node.js 20.9 or later.
+
+```bash
+npm --prefix web-next ci
+npm --prefix web-next run dev
+```
+
+Open http://127.0.0.1:3000. Set `ERP_API` in the Next.js server environment if FastAPI uses a
+different host or port. Use the same hostname for both frontends to share the browser session.
+
+### Supabase accounts and access
+
+Create the user in Supabase Authentication, then grant ERP access in the Supabase SQL Editor
+using the user's ID. The default ERP role is `user`.
+
+```sql
+insert into public.aerp_memberships (user_id) values ('user-uuid-from-supabase-auth');
+```
+
+Users can sign in with their Supabase email. For username sign-in, create the account with
+`<username>@users.a-erp.example` and use the short username in Next.js. Set `ERP_USERNAME_DOMAIN`
+to a domain you control if those aliases need to receive password recovery email.
+
+FastAPI verifies the access token with Supabase Auth for each protected API request. It then reads
+the caller's membership with the same token. Postgres row-level security allows only the caller's
+own membership and requires a live `auth.sessions` row, so a signed-out token or an account
+without ERP membership cannot read protected data. Next.js checks this same guard before rendering
+the dashboard.
+
+Supabase handles passwords. The app stores access and refresh tokens in `HttpOnly`, `SameSite=Lax`
+cookies. Set `ERP_COOKIE_SECURE=1` when serving over HTTPS. For local Supabase development, run
+`supabase start` and use the local API URL and publishable key.
 
 The app treats the dataset's last posting date (**31 Oct 2026**) as "today", so ageing, YTD and DSO
 figures are meaningful. The API is **read-only** for now, and every data endpoint requires sign-in.
@@ -240,8 +270,9 @@ src/erp_synth/
   validate.py    # integrity checks + summary metrics
 src/erp_api/app.py   # read-only FastAPI JSON API (+ serves web/dist when built)
                      # stock dashboard: GET /api/inventory/dashboard, /api/inventory/items (cached per filter)
-src/erp_api/auth.py  # local auth: scrypt passwords, cookie sessions (data/auth.sqlite)
-src/erp_api/users.py # account admin CLI
+src/erp_api/auth.py  # Supabase Auth, membership verification and session cookies
+supabase/migrations/ # database session and membership policies
+web-next/            # Next.js starter
 web/                 # React frontend (pages/, components/, lib/)
 .claude/skills/ui-ux-pro-max/  # UI/UX design-intelligence skill (MIT, nextlevelbuilder)
 tests/               # smoke tests
