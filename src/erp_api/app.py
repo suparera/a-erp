@@ -149,7 +149,8 @@ def dashboard(con=DB):
     inv = one(con, f"""SELECT ROUND(SUM(value),2) AS value,
                               SUM(CASE WHEN on_hand <= 0 THEN 1 ELSE 0 END) AS out_of_stock,
                               SUM(CASE WHEN on_hand > 0 AND on_hand < reorder_point THEN 1 ELSE 0 END) AS below_rop
-                       FROM ({STOCK}) s JOIN products p USING (product_id) WHERE p.is_active = 1""")
+                       FROM ({STOCK}) s JOIN products p USING (product_id)
+                       WHERE p.is_active = 1 OR s.on_hand > 0""")
     so = one(con, "SELECT COUNT(*) AS n, COALESCE(SUM(total_amount),0) AS value FROM sales_orders WHERE status = 'OPEN'")
     po = one(con, "SELECT COUNT(*) AS n, COALESCE(SUM(total_amount),0) AS value FROM purchase_orders WHERE status IN ('OPEN', 'PARTIALLY_RECEIVED')")
     last90 = one(con, "SELECT SUM(total_amount) AS v FROM sales_invoices WHERE invoice_date > date(:as_of, '-90 day')", ytd)["v"] or 1
@@ -199,7 +200,7 @@ def dashboard(con=DB):
 # ---------------------------------------------------------------- sales orders
 @api.get("/sales-orders")
 def sales_orders(q: str | None = None, status: str | None = None, warehouse_id: int | None = None,
-                 customer_id: int | None = None, date_from: str | None = None, date_to: str | None = None,
+                 customer_id: int | None = None, category: str | None = None, date_from: str | None = None, date_to: str | None = None,
                  sort: str = "order_date", dir: str = "desc", page: int = PageQ, page_size: int = SizeQ, con=DB):
     where, p = ["1=1"], {}
     if q:
@@ -214,6 +215,9 @@ def sales_orders(q: str | None = None, status: str | None = None, warehouse_id: 
         where.append("so.order_date >= :df"); p["df"] = date_from
     if date_to:
         where.append("so.order_date <= :dt"); p["dt"] = date_to
+    if category:
+        where.append("EXISTS (SELECT 1 FROM sales_order_lines fl JOIN products fp USING (product_id) JOIN product_categories fc USING (category_id) WHERE fl.sales_order_id = so.sales_order_id AND fc.name = :category)")
+        p["category"] = category
     base = f"""SELECT so.sales_order_id, so.order_number, so.order_date, so.requested_date, so.status, so.cancel_reason,
                       so.customer_id, c.name AS customer_name, c.segment, w.code AS warehouse,
                       so.subtotal, so.total_amount, d.ship_date,
@@ -599,7 +603,9 @@ def purchase_orders(q: str | None = None, status: str | None = None, supplier_id
     where, p = ["1=1"], {}
     if q:
         where.append("(po.po_number LIKE :q OR s.name LIKE :q)"); p["q"] = f"%{q}%"
-    if status:
+    if status == "OPEN":
+        where.append("po.status IN ('OPEN', 'PARTIALLY_RECEIVED')")
+    elif status:
         where.append("po.status = :status"); p["status"] = status
     if supplier_id:
         where.append("po.supplier_id = :sid"); p["sid"] = supplier_id

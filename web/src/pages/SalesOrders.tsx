@@ -13,7 +13,7 @@ interface SalesOrderRow {
 
 export function SalesOrdersPage() {
   const { data: meta } = useMeta();
-  const [f, set] = useUrlState({ q: "", status: "", warehouse_id: "", date_from: "", date_to: "", sort: "order_date", dir: "desc", page: "1" });
+  const [f, set] = useUrlState({ q: "", status: "", warehouse_id: "", category: "", date_from: "", date_to: "", sort: "order_date", dir: "desc", page: "1" });
   const { data, error, isLoading, isFetching } = useApi<Paged<SalesOrderRow>>("sales-orders", { ...f, page_size: 25 });
 
   return (
@@ -25,6 +25,8 @@ export function SalesOrdersPage() {
           options={[{ value: "", label: "All statuses" }, { value: "OPEN", label: "Open" }, { value: "INVOICED", label: "Invoiced" }, { value: "CANCELLED", label: "Cancelled" }]} />
         <Select label="Warehouse" value={f.warehouse_id} onChange={(e) => set({ warehouse_id: e.target.value })}
           options={[{ value: "", label: "All warehouses" }, ...(meta?.warehouses ?? []).map((w) => ({ value: w.warehouse_id, label: w.code }))]} />
+        <Select label="Category" value={f.category} onChange={(e) => set({ category: e.target.value })}
+          options={[{ value: "", label: "All categories" }, ...(meta?.categories ?? []).map((c) => ({ value: c.name, label: c.name }))]} />
         <DateInput label="From" value={f.date_from} onChange={(date_from) => set({ date_from })} />
         <DateInput label="To" value={f.date_to} onChange={(date_to) => set({ date_to })} />
       </FilterBar>

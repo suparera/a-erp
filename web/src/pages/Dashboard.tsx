@@ -1,6 +1,6 @@
-import { AlertTriangle, Banknote, Boxes, Clock, Percent, ShoppingCart, TrendingUp, Truck } from "lucide-react";
+import { Banknote, Boxes, Percent, TrendingUp, Truck } from "lucide-react";
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { DataTable } from "../components/DataTable";
 import { useChartColors, useReducedMotion } from "../components/theme";
 import { Card, CardHeader, ErrorState, Kpi, PageHeader, PageSkeleton } from "../components/ui";
@@ -20,6 +20,7 @@ interface Dashboard {
 
 export function DashboardPage() {
   const { data, error, isLoading } = useApi<Dashboard>("dashboard");
+  const navigate = useNavigate();
   const c = useChartColors();
   const reduced = useReducedMotion();
   if (error) return <ErrorState error={error} />;
@@ -29,24 +30,19 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description={`Year to date ${data.year} · 1 Jan – ${date(data.as_of)}`} />
+      <PageHeader title="Managing Director" description={`Morning overview · Year to date ${data.year} · 1 Jan – ${date(data.as_of)}`} />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Kpi label="Revenue YTD (excl. VAT)" icon={TrendingUp} value={bahtCompact(k.revenue_ytd)}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Kpi label="Revenue YTD (excl. VAT)" icon={TrendingUp} value={bahtCompact(k.revenue_ytd)} to={`/accounting?tab=is&year=${data.year}`}
           sub={growth != null ? `${growth >= 0 ? "▲" : "▼"} ${pct(Math.abs(growth))} vs same period ${data.year - 1}` : undefined}
           tone={growth != null && growth >= 0 ? "success" : "danger"} />
-        <Kpi label="Gross margin YTD" icon={Percent} value={pct(k.gross_margin_pct_ytd)} sub={`${num(k.invoices_ytd)} invoices`} />
+        <Kpi label="Gross margin YTD" icon={Percent} value={pct(k.gross_margin_pct_ytd)} to={`/accounting?tab=is&year=${data.year}`} sub={`${num(k.invoices_ytd)} invoices`} />
         <Kpi label="Open receivables" icon={Banknote} value={bahtCompact(k.open_ar)} to="/receivables"
           sub={`${bahtCompact(k.overdue_ar)} overdue · ${num(k.open_invoices)} invoices`} tone={k.overdue_ar > 0 ? "warning" : undefined} />
-        <Kpi label="Days sales outstanding" icon={Clock} value={`${k.dso_days} days`} sub="Open AR ÷ last-90-day billings" />
-        <Kpi label="Inventory value" icon={Boxes} value={bahtCompact(k.inventory_value)} to="/inventory?stock_status=low"
+        <Kpi label="Stock value" icon={Boxes} value={bahtCompact(k.inventory_value)} to="/inventory"
           sub={`${num(k.below_reorder_point)} below reorder point · ${num(k.out_of_stock)} out`} tone={k.out_of_stock > 0 ? "danger" : k.below_reorder_point > 0 ? "warning" : undefined} />
-        <Kpi label="Open sales orders" icon={ShoppingCart} value={num(k.open_sales_orders)} to="/sales-orders?status=OPEN"
-          sub={`${baht(k.open_sales_orders_value)} awaiting shipment`} />
         <Kpi label="Open purchase orders" icon={Truck} value={num(k.open_purchase_orders)} to="/purchase-orders?status=OPEN"
           sub={`${baht(k.open_purchase_orders_value)} on order`} />
-        <Kpi label="Overdue share of AR" icon={AlertTriangle} value={pct(k.open_ar ? (k.overdue_ar / k.open_ar) * 100 : 0)}
-          to="/receivables?sort=days_overdue" sub="Past due date as of today" tone={k.overdue_ar / k.open_ar > 0.25 ? "danger" : "warning"} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
@@ -54,7 +50,8 @@ export function DashboardPage() {
           <CardHeader title="Monthly revenue & gross margin" description="Revenue and gross profit (THB, bars) with gross margin % (line)" />
           <div className="h-72 p-2 pr-0">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data.monthly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <ComposedChart data={data.monthly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                onClick={(state) => { const m = state?.activeLabel; if (m) navigate(`/accounting?tab=is&year=${String(m).slice(0, 4)}`); }}>
                 <CartesianGrid stroke={c["chart-grid"]} vertical={false} />
                 <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fill: c["muted-foreground"], fontSize: 11 }} tickLine={false} axisLine={{ stroke: c.border }} interval="preserveStartEnd" minTickGap={16} />
                 <YAxis yAxisId="v" tickFormatter={(v) => compact(v)} tick={{ fill: c["muted-foreground"], fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
@@ -67,7 +64,7 @@ export function DashboardPage() {
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar yAxisId="v" dataKey="revenue" name="Revenue" fill={c["chart-1"]} radius={[2, 2, 0, 0]} isAnimationActive={!reduced} />
                 <Bar yAxisId="v" dataKey="gross_profit" name="Gross profit" fill={c["chart-3"]} radius={[2, 2, 0, 0]} isAnimationActive={!reduced} />
-                <Line yAxisId="p" dataKey="gross_margin_pct" name="Gross margin %" stroke={c["chart-2"]} strokeWidth={2} strokeDasharray="4 3" dot={false} isAnimationActive={!reduced} />
+                <Line yAxisId="p" dataKey="gross_margin_pct" name="Gross margin %" stroke={c["chart-2"]} strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3 }} isAnimationActive={!reduced} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -90,7 +87,8 @@ export function DashboardPage() {
         </Card>
         <Card>
           <CardHeader title="Revenue by category" description={`YTD ${data.year}`} />
-          <BarList items={data.revenue_by_category.map((s) => ({ label: s.category, value: s.revenue }))} showShare />
+          <BarList items={data.revenue_by_category.map((s) => ({ label: s.category, value: s.revenue,
+            to: `/sales-orders?status=INVOICED&category=${encodeURIComponent(s.category)}&date_from=${data.year}-01-01&date_to=${data.as_of}` }))} showShare />
         </Card>
         <Card className="lg:col-span-2 xl:col-span-1">
           <CardHeader title="Top customers" description={`YTD ${data.year}`} actions={<Link to="/customers" className="text-xs font-medium text-accent hover:underline">View all</Link>} />
@@ -102,7 +100,9 @@ export function DashboardPage() {
                   <span className="text-xs font-normal text-muted-foreground">{r.segment}</span>
                 </span>
               ) },
-              { key: "revenue", header: "Revenue (THB)", align: "right", render: (r) => money(r.revenue) },
+              { key: "revenue", header: "Revenue (THB)", align: "right", render: (r) => (
+                <Link to={`/customers?q=${encodeURIComponent(r.name)}`} className="hover:text-accent hover:underline">{money(r.revenue)}</Link>
+              ) },
             ]} />
         </Card>
       </div>
